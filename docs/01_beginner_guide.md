@@ -38,6 +38,7 @@
 -> 04_reproduction_notes.md
 -> 05_fault_diagnosis_review_market_and_innovation.md
 -> 06_results_analysis.md
+-> 07_final_reproduction_report.md
 ```
 
 每份文档解决的问题：
@@ -51,6 +52,7 @@
 | `04_reproduction_notes.md` | 论文复现记录 | 知道当前工程和论文设置如何对应，哪些结果能算正式复现 |
 | `05_fault_diagnosis_review_market_and_innovation.md` | 综述与创新点 | 知道这个方向的产业背景、研究热点和后续选题方向 |
 | `06_results_analysis.md` | 实验结果分析 | 知道当前结果说明什么，CWRU/TE 哪里强，TE 弱类别在哪里 |
+| `07_final_reproduction_report.md` | 最终结果报告 | 能直接看到复现过程、实验设置、结果表、论文对比和最终结论 |
 
 读完这套文档后，至少要能自己回答：
 
