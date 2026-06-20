@@ -157,6 +157,7 @@ git show --stat
 -> 03_training_theory_to_code_deep_dive.md
 -> 04_reproduction_notes.md
 -> 05_fault_diagnosis_review_market_and_innovation.md
+-> 06_results_analysis.md
 ```
 
 各文件作用：
@@ -169,8 +170,9 @@ git show --stat
 | `03_training_theory_to_code_deep_dive.md` | 理论到代码：Dataset、Sampler、Loss、模型 |
 | `04_reproduction_notes.md` | 复现审计：哪些设置对齐论文，哪些结果算正式 |
 | `05_fault_diagnosis_review_market_and_innovation.md` | 综述和创新点：下一步研究怎么找 |
+| `06_results_analysis.md` | 结果分析：CWRU/TE、论文对比、弱类别、后续创新切入点 |
 
-如果目录里看到 `故障诊断综述.md`，把它当作早期扩展阅读即可。当前主线以编号后的 `00-05` 文件为准。
+如果目录里看到 `故障诊断综述.md`，把它当作早期扩展阅读即可。当前主线以编号后的 `00-06` 文件为准。
 
 ---
 
