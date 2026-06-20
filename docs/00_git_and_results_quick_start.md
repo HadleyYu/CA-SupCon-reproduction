@@ -1,11 +1,12 @@
 # Git、文档和结果图快速入口
 
-这份文档解决三个最实际的问题：
+这份文档解决四个最实际的问题：
 
 ```text
 1. Git 到底怎么用。
-2. 当前 docs 应该按什么顺序看。
-3. 你的复现结果和论文结果哪里一致、哪里不一致。
+2. 如何把当前项目或后续新项目推送到 GitHub。
+3. 当前 docs 应该按什么顺序看。
+4. 你的复现结果和论文结果哪里一致、哪里不一致。
 ```
 
 ---
@@ -37,6 +38,23 @@ git log --oneline -5
 
 ## 2. 先看当前仓库状态
 
+当前项目已经上传到你的 GitHub 私有仓库：
+
+```text
+https://github.com/HadleyYu/CA-SupCon-reproduction
+```
+
+当前远程仓库分工是：
+
+```text
+origin:
+你的 GitHub 仓库，用来 push 自己的复现项目。
+
+upstream:
+论文作者官方仓库，只用来参考和拉取官方更新。
+当前 upstream 的 push 已禁用，避免误推到作者仓库。
+```
+
 在项目目录下执行：
 
 ```bash
@@ -52,25 +70,34 @@ git status --short
 A  文件名     已经 git add，准备进入下一次 commit
 ```
 
-你现在看到 `?? docs/`，意思是：
+当前正常状态应该是：
 
 ```text
-docs 文件夹还没有被 Git 跟踪。
-如果想把这套文档保存进 Git，需要先 git add docs/
+git status --short 没有输出。
 ```
+
+这表示：
+
+```text
+本地文件和 GitHub 上的 main 分支一致。
+没有未提交改动。
+```
+
+如果看到 `docs/故障诊断综述.md`，不用紧张。它是本地早期扩展阅读文件，已经从 GitHub 当前版本移除，并写入 `.gitignore`，不会再被上传。
 
 ---
 
 ## 3. 提交 docs 的标准流程
 
-如果你这次只想提交文档，不想提交代码改动，执行：
+如果你只想提交文档，不想提交代码改动，执行：
 
 ```bash
 cd /Users/hadley/Desktop/UESTC/CA-SupCon
 git status --short
-git add .gitignore docs/
+git add docs/
 git status --short
-git commit -m "Add CA-SupCon reproduction docs and result figures"
+git commit -m "Update CA-SupCon reproduction docs"
+git push origin main
 ```
 
 提交后检查：
@@ -93,20 +120,22 @@ git add .
 
 ## 4. 如果你想提交代码和脚本
 
-当前项目里除了 docs，还有代码和脚本改动。建议分开提交，便于以后回看：
+如果你以后改了训练代码、数据脚本或结果脚本，建议和文档分开提交，便于以后回看。
 
-第一类：文档和忽略规则提交。
+第一类：文档提交。
 
 ```bash
-git add .gitignore docs/
-git commit -m "Add reproduction guide and result interpretation docs"
+git add docs/
+git commit -m "Update reproduction docs"
+git push origin main
 ```
 
 第二类：训练代码和脚本提交。
 
 ```bash
-git add main/ lib/ scripts/ requirements.txt .gitignore
-git commit -m "Add reproduction training utilities and result plotting"
+git add main/ lib/ scripts/ requirements.txt
+git commit -m "Update reproduction utilities"
+git push origin main
 ```
 
 提交前一定看：
@@ -117,6 +146,157 @@ git diff --stat
 ```
 
 `git diff --stat` 会告诉你每个文件大概改了多少行。
+
+---
+
+## 4.1 推送到 GitHub 和拉取更新
+
+### 场景一：当前仓库里新增文件或文件夹
+
+如果你后续在当前 `CA-SupCon` 文件夹下新建了其他文件夹，比如 `new_algorithm/`、`notes/`、`paper_review/`，并且想上传到当前 GitHub 仓库，标准流程是：
+
+```bash
+cd /Users/hadley/Desktop/UESTC/CA-SupCon
+git status --short
+git add 新文件夹名/
+git status --short
+git commit -m "Add new reproduction materials"
+git push origin main
+```
+
+如果只想提交某几个文件，不要用 `git add .`，可以明确写文件名：
+
+```bash
+git add docs/00_git_and_results_quick_start.md scripts/某个脚本.py
+git commit -m "Update GitHub workflow notes"
+git push origin main
+```
+
+如果你确认当前目录下所有改动都要提交，再使用：
+
+```bash
+git add .
+git commit -m "Update project files"
+git push origin main
+```
+
+推送前建议检查远程仓库地址：
+
+```bash
+git remote -v
+git branch -vv
+```
+
+当前这个仓库的 `origin` 应该指向你自己的 GitHub 仓库：
+
+```text
+https://github.com/HadleyYu/CA-SupCon-reproduction.git
+```
+
+### 场景二：拉取 GitHub 上的最新内容
+
+如果你在另一台电脑、GitHub 网页端，或者之后自己在远端改过内容，本地想同步最新版本，执行：
+
+```bash
+cd /Users/hadley/Desktop/UESTC/CA-SupCon
+git status --short
+git pull origin main
+```
+
+拉取前先看 `git status --short`，如果本地有未提交改动，建议先提交再拉取：
+
+```bash
+git status --short
+git add 要保存的文件或文件夹
+git commit -m "Save local changes before pulling"
+git pull origin main
+```
+
+### 场景三：复现其他论文或写其他算法，建立新的 GitHub 仓库
+
+如果你在 `UESTC` 目录下新建另一个项目，例如：
+
+```bash
+cd /Users/hadley/Desktop/UESTC
+mkdir New-Paper-Reproduction
+cd New-Paper-Reproduction
+```
+
+第一次把它变成 Git 仓库：
+
+```bash
+git init
+git status --short
+git add README.md main/ docs/ scripts/
+git commit -m "Initial reproduction project"
+```
+
+然后先去 GitHub 网页上新建一个空仓库，不要勾选自动创建 `README`、`.gitignore` 或 `LICENSE`，避免和本地首次提交冲突。假设新仓库地址是：
+
+```text
+https://github.com/HadleyYu/New-Paper-Reproduction.git
+```
+
+本地绑定远程仓库并首次推送：
+
+```bash
+git remote add origin https://github.com/HadleyYu/New-Paper-Reproduction.git
+git branch -M main
+git push -u origin main
+```
+
+以后这个新仓库的日常提交和推送就是：
+
+```bash
+git status --short
+git add 要提交的文件或文件夹
+git commit -m "Describe this change"
+git push
+```
+
+以后拉取远端最新内容就是：
+
+```bash
+git pull
+```
+
+### 场景四：从 GitHub 克隆别人的仓库再复现
+
+如果你要复现别人已经公开的论文代码，通常先克隆：
+
+```bash
+cd /Users/hadley/Desktop/UESTC
+git clone 对方仓库地址
+cd 仓库文件夹名
+```
+
+如果你只是阅读和运行，不需要推送到对方仓库。你可以先看远程地址：
+
+```bash
+git remote -v
+```
+
+如果你想把自己的复现改动上传到自己的 GitHub，建议在 GitHub 上 fork 对方仓库，或者新建自己的复现仓库，然后把 `origin` 改成自己的仓库地址。
+
+常用做法是保留对方仓库为 `upstream`，自己的仓库为 `origin`：
+
+```bash
+git remote rename origin upstream
+git remote add origin https://github.com/HadleyYu/你的复现仓库.git
+git push -u origin main
+```
+
+以后同步对方原仓库更新：
+
+```bash
+git pull upstream main
+```
+
+以后推送你自己的改动：
+
+```bash
+git push origin main
+```
 
 ---
 
@@ -175,6 +355,14 @@ git show --stat
 | `07_final_reproduction_report.md` | 最终报告：复现过程、实验设置、结果、论文对比和结论 |
 
 如果目录里看到 `故障诊断综述.md`，把它当作早期扩展阅读即可。当前主线以编号后的 `00-07` 文件为准。
+
+该文件当前是本地保留文件：
+
+```text
+GitHub 当前版本不包含它。
+.gitignore 已忽略它。
+它不会影响当前主线文档。
+```
 
 ---
 
