@@ -6,7 +6,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 
-from utils import total_acc_cal, each_cls_acc_cal, seed_everything
+from utils import total_acc_cal, each_cls_acc_cal, classification_metrics, resolve_device, empty_device_cache
 from backbone import *
 from loss import create_ce_loss, create_supcon_loss
 
@@ -20,8 +20,8 @@ class Model_SupCon(object):
         self.mode = self.cfg["MODE"]
         self.logger.info("*************************[{}]: {} ({})***********************".format(self.cfg["TYPE"], self.cfg["EXP_TYPE"], self.mode))
 
-        self.device = torch.device(self.training_opt["DEVICE"] if torch.cuda.is_available() else "cpu")  # specify the GPU.
-        self.logger.info("===> Using {} GPU\n".format(self.device))
+        self.device = resolve_device(self.training_opt.get("DEVICE", "auto"))
+        self.logger.info("===> Using device: {}\n".format(self.device))
 
         self.model_dir = self.cfg["MODEL_DIR"]
         
@@ -203,13 +203,13 @@ class Model_SupCon(object):
 
             for model in self.networks.values():
                 model.train()
-            torch.cuda.empty_cache()
+            empty_device_cache(self.device)
 
             train_total_loss = []  
             train_supcon_loss = []
             train_ce_loss = []                                                    # list of each mini-batch loss
-            train_total_preds = torch.empty(0, dtype=torch.long).to(self.device)  # predict labels of total test set
-            train_total_labels = torch.empty(0, dtype=torch.long).to(self.device) # true labels of total test set
+            train_total_preds = []
+            train_total_labels = []
 
             for step, (data, target, data_transformed_list) in enumerate(tqdm(self.dataloader_dict["train"])):
                
@@ -243,8 +243,8 @@ class Model_SupCon(object):
 
                     output = F.softmax(logit, 1)
                     _, preds = output.max(dim=1)
-                    train_total_preds = torch.cat((train_total_preds, preds))
-                    train_total_labels = torch.cat((train_total_labels, target))
+                    train_total_preds.append(preds.detach())
+                    train_total_labels.append(target.detach())
 
                     if self.mode == "train_supcon":
                         total_loss = ce_loss + self.lamda * sup_loss
@@ -261,6 +261,8 @@ class Model_SupCon(object):
             if self.model_optimizer_scheduler is not None:
                 self.model_optimizer_scheduler.step()
  
+            train_total_preds = torch.cat(train_total_preds)
+            train_total_labels = torch.cat(train_total_labels)
             total_rsl = total_acc_cal(train_total_preds, train_total_labels)
             self.logger.info("     TrainLoss: {:.5f}\tTrainSupLoss: {:.5f}\tTrainCeLoss: {:.5f}\tTrainNum: {}\tAccTrainNum: {}\tTrainAcc: {:.5f}".format(
                 np.mean(train_total_loss), np.mean(train_supcon_loss), np.mean(train_ce_loss), total_rsl["total_num"], total_rsl["correct_num"], total_rsl["accuracy"]))
@@ -269,9 +271,8 @@ class Model_SupCon(object):
             if (total_eval_rsl["accuracy"]) > best_acc:
                 best_epoch = epoch
                 best_acc = total_eval_rsl["accuracy"]
-                best_model_weights['FEAT_MODEL'] = copy.deepcopy(self.networks['FEAT_MODEL'].state_dict())
-                best_model_weights["PROJECTION_HEAD"] = copy.deepcopy(self.networks["PROJECTION_HEAD"].state_dict())
-                best_model_weights['CLASSIFIER'] = copy.deepcopy(self.networks['CLASSIFIER'].state_dict())
+                for key, model in self.networks.items():
+                    best_model_weights[key] = copy.deepcopy(model.state_dict())
                 
         self.logger.info('===> Training Complete')
         self.logger.info('===> Best validation accuracy is %.3f at epoch %d' % (best_acc, best_epoch))
@@ -289,41 +290,48 @@ class Model_SupCon(object):
         if display:
             self.logger.info("-------------------- ****** Model {} ****** --------------------".format(phase))
         
-        torch.cuda.empty_cache()
+        empty_device_cache(self.device)
         for model in self.networks.values():
             model.eval()
         
         eval_total_loss = []
-        eval_total_preds = torch.empty(0, dtype=torch.long).to(self.device)
-        eval_total_labels = torch.empty(0, dtype=torch.long).to(self.device)
+        eval_total_preds = []
+        eval_total_labels = []
 
         for data, target, _ in self.dataloader_dict[phase]:
             data, target = data.float().to(self.device), target.long().to(self.device)
 
-            with torch.set_grad_enabled(False):
+            with torch.inference_mode():
                 feature = self.networks["FEAT_MODEL"](data)
                 logit = self.networks["CLASSIFIER"](feature)
                 
                 output = F.softmax(logit, 1)
                 _, preds = output.max(dim=1)
-                eval_total_preds = torch.cat((eval_total_preds, preds))
-                eval_total_labels = torch.cat((eval_total_labels, target))
+                eval_total_preds.append(preds)
+                eval_total_labels.append(target)
 
                 loss = self.criterions["CE_LOSS"](logit, target)
                 eval_total_loss.append(loss.item())
         
+        eval_total_preds = torch.cat(eval_total_preds)
+        eval_total_labels = torch.cat(eval_total_labels)
         total_rsl = total_acc_cal(eval_total_preds, eval_total_labels)
+        metric_rsl = classification_metrics(
+            eval_total_preds,
+            eval_total_labels,
+            num_classes=self.training_opt["NUM_CLASSES"],
+        )
         
         if (phase == "val"):
-                self.logger.info("     ValLoss: {:.5f}\tValNum: {}\tAccValNum: {}\t\tValAcc: {:.5f}".format(
-                    np.mean(eval_total_loss), total_rsl["total_num"], total_rsl["correct_num"], total_rsl["accuracy"]))
+                self.logger.info("     ValLoss: {:.5f}\tValNum: {}\tAccValNum: {}\t\tValAcc: {:.5f}\tValF1: {:.5f}\tValMCC: {:.5f}".format(
+                    np.mean(eval_total_loss), total_rsl["total_num"], total_rsl["correct_num"], metric_rsl["accuracy"], metric_rsl["macro_f1"], metric_rsl["mcc"]))
         
         else:
             self.logger.info('===> Performance on test set')
             per_cls_rsl = each_cls_acc_cal(eval_total_preds, eval_total_labels)
             
-            self.logger.info("     TestLoss: {:.5f}\tTestNum: {}\tAccTestNum: {}\tTestAcc: {:.5f}".format(
-                np.mean(eval_total_loss), total_rsl["total_num"], total_rsl["correct_num"], total_rsl["accuracy"]))
+            self.logger.info("     TestLoss: {:.5f}\tTestNum: {}\tAccTestNum: {}\tTestAcc: {:.5f}\tTestF1: {:.5f}\tTestMCC: {:.5f}".format(
+                np.mean(eval_total_loss), total_rsl["total_num"], total_rsl["correct_num"], metric_rsl["accuracy"], metric_rsl["macro_f1"], metric_rsl["mcc"]))
             
             self.logger.info("     Per class accuracy: {}".format(per_cls_rsl["class_accs"]))
             self.logger.info("     Per class acc_Nums: {}".format(per_cls_rsl["per_cls_correct"]))
