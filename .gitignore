@@ -4,7 +4,5 @@ __pycache__/
 .DS_Store
 .mplconfig/
 tmp/
-docs/故障诊断综述.md
-
 data_raw/
 output/
